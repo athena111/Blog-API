@@ -141,4 +141,14 @@ beforeAll(async () => {
       });
     });
     
+
+
+    describe("DELETE /api/blogs/:id", () => {
+      it("should delete a blog post", async () => {
+        const res = await request(app)
+        .delete(`/api/blogs/${blogId}`)
+        .set({Authorization: `Bearer ${testToken}`});
+        expect(res.statusCode).toBe(200);
+      });
+    });
   });
