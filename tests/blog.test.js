@@ -29,7 +29,7 @@ beforeAll(async () => {
   })
 
   describe("GET /api/blogs/all", () => {
-    it("should return all products", async () => {
+    it("should return all blog posts", async () => {
       const res = await request(app).get("/api/blogs/all");
       expect(res.statusCode).toBe(200);
       expect(res.body.data.length).toBeGreaterThan(0);
@@ -87,29 +87,58 @@ beforeAll(async () => {
             expect(newBlog.body.author && typeof newBlog.body.author === 'string').toBe(true);
       });
     });
-
-
     
-  describe("GET /api/blogs/:id", () => {
-    it("should return one blog", async () => {
-      const res = await request(app)
-      .get(`/api/blogs/${blogId}`)
-      .set({Authorization: `Bearer ${testToken}`});
-      expect(res.statusCode).toBe(200);
-      expect(res.body && typeof res.body === 'object').toBe(true);
-      expect(res.body).toHaveProperty(
-            "title",
-            "description",
-            "author",
-            "state",
-            "read_count",
-            "reading_time",
-            "tags",
-            "body"
-      );
-      expect(typeof res.body.read_count).toBe("number");
-      expect(res.body.author && typeof res.body.author === 'object').toBe(true);
+    describe("GET /api/blogs/:id", () => {
+      it("should return one blog", async () => {
+        const res = await request(app)
+        .get(`/api/blogs/${blogId}`)
+        .set({Authorization: `Bearer ${testToken}`});
+        expect(res.statusCode).toBe(200);
+        expect(res.body && typeof res.body === 'object').toBe(true);
+        expect(res.body).toHaveProperty(
+              "title",
+              "description",
+              "author",
+              "state",
+              "read_count",
+              "reading_time",
+              "tags",
+              "body"
+        );
+        expect(typeof res.body.read_count).toBe("number");
+        expect(res.body.author && typeof res.body.author === 'object').toBe(true);
+      });
     });
-  });
 
+    describe("GET /api/blogs/", () => {
+      it("should return all posts by authenticated user", async () => {
+        const res = await request(app)
+        .get("/api/blogs/")
+        .set({Authorization: `Bearer ${testToken}`});
+        expect(res.statusCode).toBe(200);
+        expect(res.body.data.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe("GET /api/blogs/published", () => {
+      it("should return all published blog posts", async () => {
+        const res = await request(app).get("/api/blogs/published");
+        expect(res.statusCode).toBe(200);
+        expect(res.body.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe("PUT /api/blogs/:id", () => {
+      it("should update a blog post", async () => {
+        const res = await request(app)
+        .put(`/api/blogs/${blogId}`)
+        .set({Authorization: `Bearer ${testToken}`})
+        .send({
+          title: `${string} ${string}`
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.body.message).toBeDefined();
+      });
+    });
+    
   });
