@@ -2,7 +2,7 @@ const db = require("../models");
 const Blog = db.blogs;
 
 // Create and Save a new blog
-exports.create = (req, res) => {
+exports.create = async (req, res) => {
   // Validate request
   if (!req.body.title || !req.body.body) {
     return res.status(400).send({ message: "Title/body can not be empty!" });
@@ -19,168 +19,187 @@ exports.create = (req, res) => {
   });
 
   // Save blog in the database
-  blogData
-    .save(blogData)
-    .then(data => {
-      res.send(data);
-    })
-    .catch(err => {
-      res.status(500).send({
+  try {
+    const newBlog = await blogData.save(blogData);
+    res.json(newBlog);
+  } catch (err) {
+          res.status(500).send({
         message:
           err.message || "Some error occurred while creating the blog."
       });
-    });
+  }
+
 };
 
-exports.fetchAll = (req, res) => {
+exports.fetchAll = async (req, res) => {
 
-  const {author, title, tags, orderBy} = req.query;
+  try {
+    
+    const {author, title, tags, orderBy} = req.query;
 
-  const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20 } = req.query;
+  
+    const queryParams = {};
+  
+    if(author) queryParams.author = author;
+    if(title) queryParams.title = title?.toString();
+    if(tags) queryParams.tags = tags?.toString();
+  
+    let orderParams = {};
+    if(orderBy?.toString() == 'read_count') orderParams = {read_count: -1};
+    if(orderBy?.toString() == 'reading_time') orderParams = {reading_time: -1};
+    if(orderBy?.toString() == 'timestamp') orderParams = {created_at: -1};
 
-  const queryParams = {};
-
-  if(author) queryParams.author = author;
-  if(title) queryParams.title = title?.toString();
-  if(tags) queryParams.tags = tags?.toString();
-
-  let orderParams = {};
-  if(orderBy?.toString() == 'read_count') orderParams = {read_count: -1};
-  if(orderBy?.toString() == 'reading_time') orderParams = {reading_time: -1};
-  if(orderBy?.toString() == 'timestamp') orderParams = {created_at: -1};
-
-  Blog.find(queryParams)
+    const allBlogs = await Blog.find(queryParams)
     .limit(limit * 1)
     .skip((page - 1) * limit)
     .sort(orderParams)
-    .exec()
-    .then(data => {
-      res.send({
-        data,
-        currentPage: page,
-        limit
-      });
-    })
-    .catch(err => {
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while retrieving blogs."
-      });
+    .exec();
+
+    res.json({
+      data: allBlogs,
+      currentPage: page,
+      limit
     });
+
+  } catch (err) {
+    res.status(500).send({
+      message:
+        err.message || "Some error occurred while retrieving blogs."
+    });
+  }
+
 }
 
-exports.fetchAllByLoggedInUser = (req, res) => {
+exports.fetchAllByLoggedInUser = async (req, res) => {
 
-  const state = req.query.state;
+  try {
 
-  const { page = 1, limit = 20 } = req.query;
+    const state = req.query.state;
 
-  let condition = state ? 
-  { state: { $regex: new RegExp(state), $options: "i" }, author: req.body.userId } : 
-  {author: req.body.userId};
+    const { page = 1, limit = 20 } = req.query;
+  
+    let condition = state ? 
+    { state: { $regex: new RegExp(state), $options: "i" }, author: req.body.userId } : 
+    {author: req.body.userId};
+  
+    const allBlogs = await Blog.find(condition).limit(limit * 1)
+      .skip((page - 1) * limit)
+      .exec();
 
-  Blog.find(condition).limit(limit * 1)
-    .skip((page - 1) * limit)
-    .exec()
-    .then(data => {
       res.send({
-        data,
+        data: allBlogs,
         currentPage: page,
         limit
       });
-    })
-    .catch(err => {
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while retrieving blogs."
-      });
+    
+  } catch (err) {
+    res.status(500).send({
+      message:
+        err.message || "Some error occurred while retrieving blogs."
     });
+  }
+
 }
 
 
 // Retrieve all blogs from the database.
-exports.findAll = (req, res) => {
-  const title = req.query.title;
+exports.findAll = async (req, res) => {
 
-  const { page = 1, limit = 10 } = req.query;
+  try {
 
-  let condition = title ? { title: { $regex: new RegExp(title), $options: "i" } } : {};
+    const title = req.query.title;
 
-  blogData.find(condition).limit(limit * 1)
-    .skip((page - 1) * limit)
-    .exec()
-    .then(data => {
-      res.send({
-        data,
+    const { page = 1, limit = 10 } = req.query;
+  
+    let condition = title ? { title: { $regex: new RegExp(title), $options: "i" } } : {};
+  
+    const all = await blogData.find(condition).limit(limit * 1)
+      .skip((page - 1) * limit)
+      .exec();
+    
+      res.json({
+        data: all,
         totalPages: Math.ceil(count / limit),
         currentPage: page
       });
-    })
-    .catch(err => {
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while retrieving blogs."
-      });
+
+  } catch (err) {
+    
+    res.status(500).send({
+      message:
+        err.message || "Some error occurred while retrieving blogs."
     });
+
+  }
+
 };
 
 // Find a single blog with an id
-exports.findOne = (req, res) => {
-  const id = req.params.id;
+exports.findOne = async (req, res) => {
 
-  Blog.findById(id)
-    .populate("author", "first_name last_name email")
-    .then(data => {
-      if (!data) {
-        res.status(404).send({ message: "Not found blog with id " + id });
-      } else {
-        updateReadCount(id);
-        res.send(data);
-      }
-    })
-    .catch(err => {
-      res
-        .status(500)
-        .send({ message: "Error retrieving blog with id=" + id });
-    });
+  try {
+    
+    const id = req.params.id;
+
+    const data = await Blog.findById(id)
+    .populate("author", "first_name last_name email");
+
+    if (!data) {
+      res.status(404).send({ message: "Not found blog with id " + id });
+    } else {
+      updateReadCount(id);
+      res.send(data);
+    }
+
+  } catch (err) {
+    res
+    .status(500)
+    .send({ message: "Error retrieving blog with id=" + id });
+  }
+
 };
 
 // Update a blog by the id in the request
 exports.update = async (req, res) => {
-  if (!req.body) {
-    return res.status(400).send({
-      message: "Data to update can not be empty!"
-    });
-  }
 
-  const id = req.params.id;
-
-  const data = await Blog.findById(id);
-
-    if(!data) return res.status(404).send({message: "Blog post not found!"});
+  try {
     
-    if(data && data.author.toString() !== req.body.userId.toString()) {
-      return res.status(403).send({message: "Forbidden!"});
+    if (!req.body) {
+      return res.status(400).send({
+        message: "Data to update can not be empty!"
+      });
     }
 
 
-  Blog.findByIdAndUpdate(id, req.body, { useFindAndModify: false })
-    .then(data => {
-      if (!data) {
+    const id = req.params.id;
+
+    const data = await Blog.findById(id);
+  
+      if(!data) return res.status(404).send({message: "Blog post not found!"});
+      
+      if(data && data.author.toString() !== req.body.userId.toString()) {
+        return res.status(403).send({message: "Forbidden!"});
+      }
+
+      const updatedBlog = Blog.findByIdAndUpdate(id, req.body, { useFindAndModify: false })
+  
+      if (!updatedBlog) {
         return res.status(404).send({
           message: `Cannot update blog with id=${id}. Maybe blog was not found!`
         });
       } else return res.send({ message: "blog was updated successfully." });
-    })
-    .catch(err => {
-      return res.status(500).send({
-        message: "Error updating blog with id=" + id
-      });
+
+  } catch (error) {
+    return res.status(500).send({
+      message: "Error updating blog with id=" + id
     });
+  }
+
 };
 
 // Delete a blog with the specified id in the request
-exports.delete = (req, res) => {
+exports.delete = async (req, res) => {
   const id = req.params.id;
 
   Blog.findByIdAndRemove(id, { useFindAndModify: false })
@@ -203,33 +222,34 @@ exports.delete = (req, res) => {
 };
 
 // Delete all blogs from the database.
-exports.deleteAll = (req, res) => {
-  Blog.deleteMany({})
-    .then(data => {
-      res.send({
-        message: `${data.deletedCount} blogs were deleted successfully!`
-      });
-    })
-    .catch(err => {
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while removing all blogs."
-      });
+exports.deleteAll = async (req, res) => {
+
+  try {
+  const deleteAll = await Blog.deleteMany({});
+  res.send({
+    message: `${data.deletedCount} blogs were deleted successfully!`
+  });
+  } catch (err) {
+    res.status(500).send({
+      message:
+        err.message || "Some error occurred while removing all blogs."
     });
+  }
 };
 
 // Find all published blogs
-exports.findAllPublished = (req, res) => {
-  Blog.find({ published: true })
-    .then(data => {
-      res.send(data);
-    })
-    .catch(err => {
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while retrieving blogs."
-      });
+exports.findAllPublished = async (req, res) => {
+
+  try {
+    const data = await Blog.find({ published: true })
+    res.send(data);
+  } catch (err) {
+    res.status(500).send({
+      message:
+        err.message || "Some error occurred while retrieving blogs."
     });
+  }
+
 };
 
 function readingTime(string){
